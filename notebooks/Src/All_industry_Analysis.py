@@ -564,10 +564,8 @@ class EnhancedFinancialAnalyzer:
         """
         Create summary statistics (mean and median) for each Industry and Financial_Metric
         across all companies (excluding already aggregated rows).
-
         Args:
             master_df (DataFrame): Master dataframe in wide format.
-
         Returns:
             DataFrame: Summary statistics dataframe in wide format.
         """
@@ -590,63 +588,37 @@ class EnhancedFinancialAnalyzer:
         # Group by Industry and Financial Metric
         for industry in data_for_stats['Industry'].unique():
             industry_data = data_for_stats[data_for_stats['Industry'] == industry]
+            
             for metric in industry_data['Financial_Metric'].unique():
                 metric_data_for_stats = industry_data[industry_data['Financial_Metric'] == metric]
+                
+                # Calculate Mean
+                mean_row = {'Industry': industry, 'Company': 'Mean', 'Financial_Metric': metric}
+                for year_col in year_columns:
+                    mean_val = metric_data_for_stats[year_col].mean()
+                    mean_row[year_col] = round(mean_val, 2) if pd.notna(mean_val) else np.nan
+                summary_rows.append(mean_row)
 
-                if not metric_data_for_stats.empty:
-                    mean_row_data = {
-                        'Industry': industry,
-                        'Company': f'MEAN_{industry}',
-                        'Financial_Metric': metric
-                    }
-                    median_row_data = {
-                        'Industry': industry,
-                        'Company': f'MEDIAN_{industry}',
-                        'Financial_Metric': metric
-                    }
-                    
-                    # Initialize year columns with NaN
-                    for y_col in year_columns:
-                        mean_row_data[y_col] = np.nan
-                        median_row_data[y_col] = np.nan
+                # Calculate Median
+                median_row = {'Industry': industry, 'Company': 'Median', 'Financial_Metric': metric}
+                for year_col in year_columns:
+                    median_val = metric_data_for_stats[year_col].median()
+                    median_row[year_col] = round(median_val, 2) if pd.notna(median_val) else np.nan
+                summary_rows.append(median_row)
 
-                    for year_col in year_columns:
-                        if year_col in metric_data_for_stats.columns:
-                            values = metric_data_for_stats[year_col].dropna()
-                            
-                            # Filter out non-numeric values, infinites, and extreme outliers before calculating stats
-                            valid_values = []
-                            for val in values:
-                                try:
-                                    if isinstance(val, (int, float)) and not (np.isnan(val) or np.isinf(val)):
-                                        # Filter extreme outliers, e.g., values larger than 1e15 (arbitrary large financial scale)
-                                        # Adjust this bound if your data genuinely has larger valid numbers
-                                        if abs(val) < 1e15:
-                                            valid_values.append(val)
-                                except:
-                                    continue # Skip values that cause conversion errors
-
-                            if len(valid_values) > 0:
-                                mean_row_data[year_col] = round(np.mean(valid_values), 2)
-                                median_row_data[year_col] = round(np.median(valid_values), 2)
-                            # If no valid values, keep NaN (already initialized)
-                    
-                    summary_rows.append(mean_row_data)
-                    summary_rows.append(median_row_data)
-        
-        # Create DataFrame from the collected summary rows
         if summary_rows:
             summary_df = pd.DataFrame(summary_rows)
-            # Ensure the summary_df has the same columns as master_df for consistent output
+            # Ensure the summary_df has all original columns, filling missing year columns with NaN
             missing_cols_in_summary = [col for col in master_df.columns if col not in summary_df.columns]
             for col in missing_cols_in_summary:
                 summary_df[col] = np.nan
             
-            # Reorder columns of summary_df to match master_df for consistency
-            summary_df = summary_df[master_df.columns]
+            # Reorder columns to match the master_df structure (Industry, Company, Financial_Metric, then years)
+            final_cols = ['Industry', 'Company', 'Financial_Metric'] + year_columns
+            summary_df = summary_df[final_cols]
             return summary_df
         
-        return pd.DataFrame() # Return empty DataFrame if no summary rows were generated
+        return pd.DataFrame()
 
     def process_sector(self, sector_name, sector_path):
         """
