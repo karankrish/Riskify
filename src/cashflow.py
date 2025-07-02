@@ -33,14 +33,18 @@ def prepare_df(df, metric_name, year_cols):
 def add_avg_median_rows(df, metric_name, year_cols):
     avg = df[year_cols].mean().to_frame().T
     med = df[year_cols].median().to_frame().T
-    avg.index = [f"{metric_name}-Average"]
-    med.index = [f"{metric_name}-Median"]
+
+    avg.index = [metric_name]
+    med.index = [metric_name]
+
     df.index.name = 'Company'
     avg.index.name = 'Company'
     med.index.name = 'Company'
+
     avg['Financial_Metric'] = f"{metric_name}-Average"
     med['Financial_Metric'] = f"{metric_name}-Median"
     df['Financial_Metric'] = metric_name
+
     return pd.concat([df, avg, med])
 
 def format_metric(df, year_cols):
@@ -57,6 +61,10 @@ def main():
     df = pd.read_excel(file_path, sheet_name=sheet_name)
     df.columns = [str(col).strip() for col in df.columns]
     df['Company'] = df['Company'].str.strip()
+
+    # ✅ Remove '_Cash_Flow', '__Cash_Flow', ' Cash Flow' etc.
+    df['Company'] = df['Company'].str.replace(r'_?Cash[_ ]?Flow$', '', regex=True)
+
     year_cols = [col for col in df.columns if col.isdigit()]
 
     # 📊 Prepare metrics
